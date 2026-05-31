@@ -1,6 +1,7 @@
 import { ArrowRight, RotateCcw, Volume2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import { spellingWords } from './quizBank'
 
 type QuizItem = {
   answer: string
@@ -12,100 +13,170 @@ type QuizItem = {
   after: string
 }
 
-const quizItems: QuizItem[] = [
-  {
-    word: 'rainbow',
-    before: 'r',
-    answer: 'ai',
-    after: 'nbow',
-    clue: 'Colors after the rain',
-    emoji: '🌈',
-    options: ['ai', 'ay', 'oa', 'ee'],
-  },
-  {
-    word: 'cheese',
-    before: 'ch',
-    answer: 'ee',
-    after: 'se',
-    clue: 'A yellow food in a sandwich',
-    emoji: '🧀',
-    options: ['ee', 'ea', 'oo', 'ie'],
-  },
-  {
-    word: 'pencil',
-    before: 'pen',
-    answer: 'c',
-    after: 'il',
-    clue: 'You write with it',
-    emoji: '✏️',
-    options: ['c', 's', 'k', 't'],
-  },
-  {
-    word: 'bright',
-    before: 'br',
-    answer: 'ig',
-    after: 'ht',
-    clue: 'Full of light',
-    emoji: '💡',
-    options: ['ig', 'ie', 'ai', 'ee'],
-  },
-  {
-    word: 'school',
-    before: 's',
-    answer: 'ch',
-    after: 'ool',
-    clue: 'A place for learning',
-    emoji: '🏫',
-    options: ['ch', 'sh', 'th', 'ck'],
-  },
-  {
-    word: 'garden',
-    before: 'gar',
-    answer: 'd',
-    after: 'en',
-    clue: 'Flowers grow there',
-    emoji: '🌷',
-    options: ['d', 'b', 'p', 't'],
-  },
-  {
-    word: 'friend',
-    before: 'fr',
-    answer: 'ie',
-    after: 'nd',
-    clue: 'Someone kind to play with',
-    emoji: '🤝',
-    options: ['ie', 'ei', 'ee', 'ea'],
-  },
-  {
-    word: 'planet',
-    before: 'pla',
-    answer: 'n',
-    after: 'et',
-    clue: 'Earth is one',
-    emoji: '🪐',
-    options: ['n', 'm', 'r', 'l'],
-  },
-  {
-    word: 'orange',
-    before: 'or',
-    answer: 'a',
-    after: 'nge',
-    clue: 'A fruit and a color',
-    emoji: '🍊',
-    options: ['a', 'e', 'o', 'u'],
-  },
-  {
-    word: 'little',
-    before: 'li',
-    answer: 'tt',
-    after: 'le',
-    clue: 'Small in size',
-    emoji: '📏',
-    options: ['tt', 'dd', 'll', 'pp'],
-  },
+const questionsPerRound = 20
+
+const oneLetterChoices = [
+  'a',
+  'b',
+  'c',
+  'd',
+  'e',
+  'f',
+  'g',
+  'h',
+  'i',
+  'j',
+  'k',
+  'l',
+  'm',
+  'n',
+  'o',
+  'p',
+  'r',
+  's',
+  't',
+  'u',
+  'v',
+  'w',
+  'y',
+  'z',
 ]
 
-const totalQuestions = quizItems.length
+const twoLetterChoices = [
+  'ai',
+  'ay',
+  'ea',
+  'ee',
+  'ei',
+  'ie',
+  'oa',
+  'oe',
+  'oi',
+  'oo',
+  'ou',
+  'ow',
+  'ar',
+  'er',
+  'ir',
+  'or',
+  'ur',
+  'al',
+  'el',
+  'le',
+  'ch',
+  'sh',
+  'th',
+  'wh',
+  'ck',
+  'ng',
+  'ph',
+  'qu',
+  'bb',
+  'dd',
+  'ff',
+  'll',
+  'mm',
+  'nn',
+  'pp',
+  'ss',
+  'tt',
+  'zz',
+  'br',
+  'cl',
+  'cr',
+  'dr',
+  'fl',
+  'fr',
+  'gl',
+  'gr',
+  'pl',
+  'pr',
+  'sc',
+  'sk',
+  'sl',
+  'sm',
+  'sn',
+  'sp',
+  'st',
+  'sw',
+  'tr',
+]
+
+const preferredChunks = [
+  ...twoLetterChoices,
+  'a',
+  'e',
+  'i',
+  'o',
+  'u',
+]
+
+const questionEmojis = ['🌈', '🧀', '✏️', '💡', '🏫', '🌷', '🤝', '🪐', '🍊', '📏']
+
+function shuffle<T>(items: T[]) {
+  const shuffled = [...items]
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+  }
+
+  return shuffled
+}
+
+function chooseMissingPart(word: string) {
+  for (const chunk of preferredChunks) {
+    const start = word.indexOf(chunk)
+
+    if (start > 0 && start + chunk.length < word.length) {
+      return {
+        answer: chunk,
+        after: word.slice(start + chunk.length),
+        before: word.slice(0, start),
+      }
+    }
+  }
+
+  const answerLength = word.length > 4 ? 2 : 1
+  const start = Math.max(
+    1,
+    Math.min(word.length - answerLength - 1, Math.floor(word.length / 2) - 1),
+  )
+
+  return {
+    answer: word.slice(start, start + answerLength),
+    after: word.slice(start + answerLength),
+    before: word.slice(0, start),
+  }
+}
+
+function buildOptions(answer: string) {
+  const pool = answer.length === 1 ? oneLetterChoices : twoLetterChoices
+  const distractors = shuffle(pool.filter((choice) => choice !== answer)).slice(0, 3)
+  const answerIndex = Math.floor(Math.random() * 4)
+  const options = [...distractors]
+
+  options.splice(answerIndex, 0, answer)
+
+  return options
+}
+
+function createQuestion(word: string, index: number): QuizItem {
+  const cleanWord = word.toLowerCase()
+  const missingPart = chooseMissingPart(cleanWord)
+
+  return {
+    ...missingPart,
+    clue: 'Listen, then choose the missing letters',
+    emoji: questionEmojis[index % questionEmojis.length],
+    options: buildOptions(missingPart.answer),
+    word: cleanWord,
+  }
+}
+
+function buildRound() {
+  return shuffle([...spellingWords]).slice(0, questionsPerRound).map(createQuestion)
+}
 
 function sayWord(word: string) {
   if (!('speechSynthesis' in window)) return
@@ -118,6 +189,7 @@ function sayWord(word: string) {
 }
 
 function App() {
+  const [quizItems, setQuizItems] = useState<QuizItem[]>(() => buildRound())
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
@@ -127,6 +199,7 @@ function App() {
   const restartButtonRef = useRef<HTMLButtonElement>(null)
 
   const currentItem = quizItems[currentIndex]
+  const totalQuestions = quizItems.length
   const hasAnswered = selectedAnswer !== null
   const isCorrect = selectedAnswer === currentItem.answer
 
@@ -139,7 +212,7 @@ function App() {
 
     if (!hasAnswered) return currentItem.clue
     return isCorrect ? 'Correct!' : `It is ${currentItem.word}.`
-  }, [currentItem.clue, currentItem.word, hasAnswered, isCorrect, isFinished, score])
+  }, [currentItem.clue, currentItem.word, hasAnswered, isCorrect, isFinished, score, totalQuestions])
 
   useEffect(() => {
     if (hasAnswered) nextButtonRef.current?.focus()
@@ -174,6 +247,7 @@ function App() {
   }
 
   function restartQuiz() {
+    setQuizItems(buildRound())
     setCompletedQuestions(0)
     setCurrentIndex(0)
     setIsFinished(false)
@@ -197,7 +271,7 @@ function App() {
         </div>
       </section>
 
-      <section className="quiz-board" aria-live="polite">
+      <section className="quiz-board">
         <div className="quiz-topline">
           <span>
             {isFinished ? totalQuestions : currentIndex + 1} / {totalQuestions}
