@@ -7,7 +7,6 @@ type QuizItem = {
   answer: string
   before: string
   clue: string
-  emoji: string
   options: string[]
   word: string
   after: string
@@ -42,6 +41,10 @@ const oneLetterChoices = [
   'z',
 ]
 
+const vowelChoices = ['a', 'e', 'i', 'o', 'u', 'y']
+
+const consonantChoices = oneLetterChoices.filter((choice) => !vowelChoices.includes(choice))
+
 const twoLetterChoices = [
   'ai',
   'ay',
@@ -71,6 +74,7 @@ const twoLetterChoices = [
   'ng',
   'ph',
   'qu',
+  'wr',
   'bb',
   'dd',
   'ff',
@@ -81,37 +85,45 @@ const twoLetterChoices = [
   'ss',
   'tt',
   'zz',
-  'br',
-  'cl',
-  'cr',
-  'dr',
-  'fl',
-  'fr',
-  'gl',
-  'gr',
-  'pl',
-  'pr',
-  'sc',
-  'sk',
-  'sl',
-  'sm',
-  'sn',
-  'sp',
-  'st',
-  'sw',
-  'tr',
 ]
 
-const preferredChunks = [
-  ...twoLetterChoices,
-  'a',
-  'e',
-  'i',
-  'o',
-  'u',
+const teachingChunks = [
+  'ai',
+  'ay',
+  'ea',
+  'ee',
+  'ei',
+  'ie',
+  'oa',
+  'oi',
+  'oo',
+  'ou',
+  'ow',
+  'ar',
+  'er',
+  'ir',
+  'or',
+  'ur',
+  'ch',
+  'sh',
+  'th',
+  'wh',
+  'ck',
+  'ng',
+  'ph',
+  'qu',
+  'wr',
+  'bb',
+  'dd',
+  'ff',
+  'll',
+  'mm',
+  'nn',
+  'pp',
+  'ss',
+  'tt',
+  'zz',
 ]
-
-const questionEmojis = ['🌈', '🧀', '✏️', '💡', '🏫', '🌷', '🤝', '🪐', '🍊', '📏']
 
 function shuffle<T>(items: T[]) {
   const shuffled = [...items]
@@ -125,33 +137,39 @@ function shuffle<T>(items: T[]) {
 }
 
 function chooseMissingPart(word: string) {
-  for (const chunk of preferredChunks) {
+  for (const chunk of teachingChunks) {
     const start = word.indexOf(chunk)
 
     if (start > 0 && start + chunk.length < word.length) {
+      const answer = chunk.slice(0, 2)
+
       return {
-        answer: chunk,
-        after: word.slice(start + chunk.length),
+        answer,
+        after: word.slice(start + answer.length),
         before: word.slice(0, start),
       }
     }
   }
 
-  const answerLength = word.length > 4 ? 2 : 1
-  const start = Math.max(
-    1,
-    Math.min(word.length - answerLength - 1, Math.floor(word.length / 2) - 1),
-  )
+  const vowelIndex = word
+    .split('')
+    .findIndex((letter, index) => index > 0 && index < word.length - 1 && vowelChoices.includes(letter))
+  const start = vowelIndex === -1 ? Math.max(1, Math.floor(word.length / 2)) : vowelIndex
 
   return {
-    answer: word.slice(start, start + answerLength),
-    after: word.slice(start + answerLength),
+    answer: word[start],
+    after: word.slice(start + 1),
     before: word.slice(0, start),
   }
 }
 
 function buildOptions(answer: string) {
-  const pool = answer.length === 1 ? oneLetterChoices : twoLetterChoices
+  const pool =
+    answer.length === 1
+      ? vowelChoices.includes(answer)
+        ? vowelChoices
+        : consonantChoices
+      : twoLetterChoices
   const distractors = shuffle(pool.filter((choice) => choice !== answer)).slice(0, 3)
   const answerIndex = Math.floor(Math.random() * 4)
   const options = [...distractors]
@@ -167,8 +185,7 @@ function createQuestion(word: string, index: number): QuizItem {
 
   return {
     ...missingPart,
-    clue: 'Listen, then choose the missing letters',
-    emoji: questionEmojis[index % questionEmojis.length],
+    clue: `Question ${index + 1}: hear the word, then complete it.`,
     options: buildOptions(missingPart.answer),
     word: cleanWord,
   }
@@ -322,7 +339,7 @@ function App() {
           <>
             <div className="word-card">
               <div className="picture-mark" aria-hidden="true">
-                {currentItem.emoji}
+                <Volume2 size={42} strokeWidth={2.6} />
               </div>
               <button
                 className="sound-button"
@@ -338,14 +355,9 @@ function App() {
               <div className="spelling-line" aria-label={`Spell ${currentItem.word}`}>
                 <span>{currentItem.before}</span>
                 <span className="missing-group" aria-hidden={!hasAnswered}>
-                  {missingLetters.map((letter, index) => (
-                    <span
-                      className={`letter-box ${hasAnswered ? 'filled' : ''}`}
-                      key={`${letter}-${index}`}
-                    >
-                      {hasAnswered ? letter : ''}
-                    </span>
-                  ))}
+                  <span className={`letter-box ${hasAnswered ? 'filled' : ''}`}>
+                    {hasAnswered ? missingLetters.join('') : ''}
+                  </span>
                 </span>
                 <span>{currentItem.after}</span>
               </div>
