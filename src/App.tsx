@@ -1,12 +1,13 @@
 import { ArrowRight, RotateCcw, Volume2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { spellingWords } from './quizBank'
+import { type SpellingEntry, spellingBank } from './quizBank'
 
 type QuizItem = {
   answer: string
   before: string
   clue: string
+  description: string
   options: string[]
   word: string
   after: string
@@ -179,20 +180,21 @@ function buildOptions(answer: string) {
   return options
 }
 
-function createQuestion(word: string, index: number): QuizItem {
-  const cleanWord = word.toLowerCase()
+function createQuestion(entry: SpellingEntry, index: number): QuizItem {
+  const cleanWord = entry.word.toLowerCase()
   const missingPart = chooseMissingPart(cleanWord)
 
   return {
     ...missingPart,
-    clue: `Question ${index + 1}: hear the word, then complete it.`,
+    clue: `Question ${index + 1}: ${entry.description}`,
+    description: entry.description,
     options: buildOptions(missingPart.answer),
     word: cleanWord,
   }
 }
 
 function buildRound() {
-  const round = shuffle([...spellingWords]).slice(0, questionsPerRound).map(createQuestion)
+  const round = shuffle([...spellingBank]).slice(0, questionsPerRound).map(createQuestion)
   const firstQuestion = round[0]
 
   if (firstQuestion?.options[0] === firstQuestion.answer) {
