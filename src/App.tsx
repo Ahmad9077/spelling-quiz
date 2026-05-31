@@ -175,7 +175,18 @@ function createQuestion(word: string, index: number): QuizItem {
 }
 
 function buildRound() {
-  return shuffle([...spellingWords]).slice(0, questionsPerRound).map(createQuestion)
+  const round = shuffle([...spellingWords]).slice(0, questionsPerRound).map(createQuestion)
+  const firstQuestion = round[0]
+
+  if (firstQuestion?.options[0] === firstQuestion.answer) {
+    const swapIndex = 1 + Math.floor(Math.random() * 3)
+    ;[firstQuestion.options[0], firstQuestion.options[swapIndex]] = [
+      firstQuestion.options[swapIndex],
+      firstQuestion.options[0],
+    ]
+  }
+
+  return round
 }
 
 function sayWord(word: string) {
