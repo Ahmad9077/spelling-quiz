@@ -1,4 +1,5 @@
 import { ArrowRight, RotateCcw, Volume2 } from 'lucide-react'
+import type { MutableRefObject } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { type SpellingEntry, spellingBank } from './quizBank'
@@ -208,13 +209,38 @@ function buildRound() {
   return round
 }
 
-function sayWord(word: string) {
+function getEnglishVoice() {
+  const voices = window.speechSynthesis.getVoices()
+
+  return (
+    voices.find((voice) => voice.lang === 'en-US') ??
+    voices.find((voice) => voice.lang.startsWith('en')) ??
+    null
+  )
+}
+
+function sayWord(word: string, utteranceRef: MutableRefObject<SpeechSynthesisUtterance | null>) {
   if (!('speechSynthesis' in window)) return
 
   window.speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(word)
+  const voice = getEnglishVoice()
+
+  if (voice) utterance.voice = voice
+
   utterance.lang = 'en-US'
   utterance.rate = 0.78
+  utterance.pitch = 1
+  utterance.volume = 1
+  utterance.onend = () => {
+    utteranceRef.current = null
+  }
+  utterance.onerror = () => {
+    utteranceRef.current = null
+  }
+
+  utteranceRef.current = utterance
+  window.speechSynthesis.resume()
   window.speechSynthesis.speak(utterance)
 }
 
@@ -227,6 +253,7 @@ function App() {
   const [isFinished, setIsFinished] = useState(false)
   const nextButtonRef = useRef<HTMLButtonElement>(null)
   const restartButtonRef = useRef<HTMLButtonElement>(null)
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   const currentItem = quizItems[currentIndex]
   const totalQuestions = quizItems.length
@@ -251,6 +278,21 @@ function App() {
   useEffect(() => {
     if (isFinished) restartButtonRef.current?.focus()
   }, [isFinished])
+
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return
+
+    window.speechSynthesis.getVoices()
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices()
+    }
+
+    return () => {
+      window.speechSynthesis.cancel()
+      window.speechSynthesis.onvoiceschanged = null
+      utteranceRef.current = null
+    }
+  }, [])
 
   function handleAnswer(answer: string) {
     if (hasAnswered || isFinished) return
@@ -316,6 +358,16 @@ function App() {
           >
             <div style={{ width: `${progress}%` }} />
           </div>
+          {!isFinished && (
+            <button
+              className="reset-button"
+              type="button"
+              onClick={restartQuiz}
+            >
+              <RotateCcw aria-hidden="true" size={16} />
+              Reset
+            </button>
+          )}
         </div>
 
         {isFinished ? (
@@ -340,16 +392,13 @@ function App() {
         ) : (
           <>
             <div className="word-card">
-              <div className="picture-mark" aria-hidden="true">
-                <Volume2 size={42} strokeWidth={2.6} />
-              </div>
               <button
-                className="sound-button"
+                className="picture-mark"
                 type="button"
                 aria-label={`Hear ${currentItem.word}`}
-                onClick={() => sayWord(currentItem.word)}
+                onClick={() => sayWord(currentItem.word, utteranceRef)}
               >
-                <Volume2 aria-hidden="true" size={20} />
+                <Volume2 size={42} strokeWidth={2.6} />
               </button>
               <p className="clue" aria-live="polite">
                 {message}
@@ -397,21 +446,13 @@ function App() {
 
             <div className="quiz-actions">
               <button
-                className="action-button ghost"
-                type="button"
-                onClick={restartQuiz}
-              >
-                <RotateCcw aria-hidden="true" size={18} />
-                Reset
-              </button>
-              <button
                 className="action-button"
                 disabled={!hasAnswered}
                 ref={nextButtonRef}
                 type="button"
                 onClick={goNext}
               >
-                Next
+                Continue
                 <ArrowRight aria-hidden="true" size={18} />
               </button>
             </div>
