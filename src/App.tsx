@@ -15,7 +15,8 @@ type QuizItem = {
 }
 
 const questionsPerRound = 20
-const harderWordMinimumLength = 5
+const harderWordMinimumLength = 7
+const answerOptionsPerQuestion = 5
 
 const oneLetterChoices = [
   'a',
@@ -160,8 +161,13 @@ function chooseMissingPart(word: string) {
     }))
   })
 
-  if (chunkCandidates.length > 0 && Math.random() < 0.55) {
-    const candidate = shuffle(chunkCandidates)[0]
+  const harderChunkCandidates = chunkCandidates.filter(
+    (candidate) => candidate.start > 1 && candidate.start + candidate.answer.length < word.length - 1,
+  )
+  const preferredChunkCandidates = harderChunkCandidates.length > 0 ? harderChunkCandidates : chunkCandidates
+
+  if (preferredChunkCandidates.length > 0 && Math.random() < 0.72) {
+    const candidate = shuffle(preferredChunkCandidates)[0]
 
     return {
       answer: candidate.answer,
@@ -180,8 +186,20 @@ function chooseMissingPart(word: string) {
         oneLetterChoices.includes(letter),
     )
 
-  if (letterCandidates.length > 0) {
-    const candidate = shuffle(letterCandidates)[0]
+  const deepLetterCandidates = letterCandidates.filter(
+    ({ index }) => index > 1 && index < word.length - 2,
+  )
+  const preferredLetterCandidates = deepLetterCandidates.length > 0 ? deepLetterCandidates : letterCandidates
+  const consonantLetterCandidates = preferredLetterCandidates.filter(
+    ({ letter }) => consonantChoices.includes(letter),
+  )
+  const candidatePool =
+    consonantLetterCandidates.length > 0 && Math.random() < 0.65
+      ? consonantLetterCandidates
+      : preferredLetterCandidates
+
+  if (candidatePool.length > 0) {
+    const candidate = shuffle(candidatePool)[0]
 
     return {
       answer: candidate.letter,
@@ -223,8 +241,8 @@ function buildOptions(answer: string) {
         ? vowelChoices
         : consonantChoices
       : twoLetterChoices
-  const distractors = shuffle(pool.filter((choice) => choice !== answer)).slice(0, 3)
-  const answerIndex = Math.floor(Math.random() * 4)
+  const distractors = shuffle(pool.filter((choice) => choice !== answer)).slice(0, answerOptionsPerQuestion - 1)
+  const answerIndex = Math.floor(Math.random() * answerOptionsPerQuestion)
   const options = [...distractors]
 
   options.splice(answerIndex, 0, answer)
@@ -252,7 +270,7 @@ function buildRound() {
   const firstQuestion = round[0]
 
   if (firstQuestion?.options[0] === firstQuestion.answer) {
-    const swapIndex = 1 + Math.floor(Math.random() * 3)
+    const swapIndex = 1 + Math.floor(Math.random() * (answerOptionsPerQuestion - 1))
     ;[firstQuestion.options[0], firstQuestion.options[swapIndex]] = [
       firstQuestion.options[swapIndex],
       firstQuestion.options[0],
