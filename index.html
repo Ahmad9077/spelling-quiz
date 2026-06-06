@@ -9,11 +9,15 @@
       content="A playful spelling quiz for 8-year-old learners."
     />
     <title>Tiny Letter Quiz</title>
+    <script>document.documentElement.dataset.quizAccess = "checking";</script>
+    <style>html[data-quiz-access="checking"] body { visibility: hidden; }</style>
+    <noscript><meta http-equiv="refresh" content="0;url=https://ahmad9077.github.io/quizzes-hub/"></noscript>
   </head>
   <body>
     <div id="root"></div>
     <script src="https://ahmad9077.github.io/quizzes-hub/config.js?v=4"></script>
-    <script src="https://ahmad9077.github.io/quizzes-hub/progress-client.js?v=4"></script>
+    <script src="https://ahmad9077.github.io/quizzes-hub/access-guard.js?v=1" data-quiz-id="spelling"></script>
+    <script src="https://ahmad9077.github.io/quizzes-hub/progress-client.js?v=5"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
