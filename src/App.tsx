@@ -14,6 +14,8 @@ type QuizItem = {
   after: string
 }
 
+type AnswerResult = 'correct' | 'wrong'
+
 const questionsPerRound = 20
 const harderWordMinimumLength = 7
 const answerOptionsPerQuestion = 5
@@ -320,8 +322,8 @@ function App() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
-  const [completedQuestions, setCompletedQuestions] = useState(0)
   const [isFinished, setIsFinished] = useState(false)
+  const [answerResults, setAnswerResults] = useState<AnswerResult[]>([])
   const nextButtonRef = useRef<HTMLButtonElement>(null)
   const restartButtonRef = useRef<HTMLButtonElement>(null)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
@@ -330,6 +332,7 @@ function App() {
   const totalQuestions = quizItems.length
   const hasAnswered = selectedAnswer !== null
   const isCorrect = selectedAnswer === currentItem.answer
+  const wrongCount = answerResults.filter((result) => result === 'wrong').length
 
   const message = useMemo(() => {
     if (isFinished) {
@@ -368,9 +371,12 @@ function App() {
   function handleAnswer(answer: string) {
     if (hasAnswered || isFinished) return
 
-    setSelectedAnswer(answer)
+    const answerIsCorrect = answer === currentItem.answer
 
-    if (answer === currentItem.answer) {
+    setSelectedAnswer(answer)
+    setAnswerResults((results) => [...results, answerIsCorrect ? 'correct' : 'wrong'])
+
+    if (answerIsCorrect) {
       setScore((count) => count + 1)
     }
   }
@@ -379,27 +385,24 @@ function App() {
     if (!hasAnswered) return
 
     if (currentIndex === totalQuestions - 1) {
-      setCompletedQuestions(totalQuestions)
       setIsFinished(true)
       return
     }
 
-    setCompletedQuestions((count) => count + 1)
     setSelectedAnswer(null)
     setCurrentIndex((index) => index + 1)
   }
 
   function restartQuiz() {
     setQuizItems(buildRound())
-    setCompletedQuestions(0)
     setCurrentIndex(0)
     setIsFinished(false)
     setScore(0)
     setSelectedAnswer(null)
+    setAnswerResults([])
   }
 
   const missingLetters = (selectedAnswer ?? currentItem.answer).split('')
-  const progress = Math.round((completedQuestions / totalQuestions) * 100)
 
   return (
     <main className="quiz-shell">
@@ -408,9 +411,15 @@ function App() {
           <p className="eyebrow">Spelling practice</p>
           <h1 id="page-title">Tiny Letter Quiz</h1>
         </div>
-        <div className="score-panel" aria-label="Quiz score">
-          <span>{score}</span>
-          <small>score</small>
+        <div className="score-panel" aria-label="Quiz results so far">
+          <div className="score-metric is-correct">
+            <span>{score}</span>
+            <small>correct</small>
+          </div>
+          <div className="score-metric is-wrong">
+            <span>{wrongCount}</span>
+            <small>wrong</small>
+          </div>
         </div>
       </section>
 
@@ -420,14 +429,22 @@ function App() {
             {isFinished ? totalQuestions : currentIndex + 1} / {totalQuestions}
           </span>
           <div
-            aria-label="Quiz progress"
-            aria-valuemax={100}
-            aria-valuemin={0}
-            aria-valuenow={progress}
-            className="progress-track"
-            role="progressbar"
+            aria-label={`${score} correct, ${wrongCount} wrong`}
+            className="answer-dots"
           >
-            <div style={{ width: `${progress}%` }} />
+            {quizItems.map((item, index) => {
+              const result = answerResults[index]
+              const state =
+                result === 'correct'
+                  ? 'is-correct'
+                  : result === 'wrong'
+                    ? 'is-wrong'
+                    : index === currentIndex && !isFinished
+                      ? 'is-current'
+                      : 'is-upcoming'
+
+              return <span className={state} key={`${item.word}-${index}`} />
+            })}
           </div>
           {!isFinished && (
             <button
@@ -444,6 +461,10 @@ function App() {
         {isFinished ? (
           <div className="finish-state">
             <div className="finish-badge">{score}/{totalQuestions}</div>
+            <div className="finish-counts" aria-label="Final answer counts">
+              <span className="is-correct">{score} correct</span>
+              <span className="is-wrong">{wrongCount} wrong</span>
+            </div>
             <h2>{message}</h2>
             <p>
               {score >= Math.ceil(totalQuestions * 0.7)
