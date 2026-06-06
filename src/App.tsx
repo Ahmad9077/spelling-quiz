@@ -15,6 +15,7 @@ type QuizItem = {
 }
 
 const questionsPerRound = 20
+const harderWordMinimumLength = 5
 
 const oneLetterChoices = [
   'a',
@@ -33,12 +34,14 @@ const oneLetterChoices = [
   'n',
   'o',
   'p',
+  'q',
   'r',
   's',
   't',
   'u',
   'v',
   'w',
+  'x',
   'y',
   'z',
 ]
@@ -139,6 +142,54 @@ function shuffle<T>(items: T[]) {
 }
 
 function chooseMissingPart(word: string) {
+  const chunkCandidates = teachingChunks.flatMap((chunk) => {
+    const starts: number[] = []
+    let start = word.indexOf(chunk)
+
+    while (start !== -1) {
+      if (start > 0 && start + chunk.length < word.length) {
+        starts.push(start)
+      }
+
+      start = word.indexOf(chunk, start + 1)
+    }
+
+    return starts.map((startIndex) => ({
+      answer: chunk.slice(0, 2),
+      start: startIndex,
+    }))
+  })
+
+  if (chunkCandidates.length > 0 && Math.random() < 0.55) {
+    const candidate = shuffle(chunkCandidates)[0]
+
+    return {
+      answer: candidate.answer,
+      after: word.slice(candidate.start + candidate.answer.length),
+      before: word.slice(0, candidate.start),
+    }
+  }
+
+  const letterCandidates = word
+    .split('')
+    .map((letter, index) => ({ index, letter }))
+    .filter(
+      ({ index, letter }) =>
+        index > 0 &&
+        index < word.length - 1 &&
+        oneLetterChoices.includes(letter),
+    )
+
+  if (letterCandidates.length > 0) {
+    const candidate = shuffle(letterCandidates)[0]
+
+    return {
+      answer: candidate.letter,
+      after: word.slice(candidate.index + 1),
+      before: word.slice(0, candidate.index),
+    }
+  }
+
   for (const chunk of teachingChunks) {
     const start = word.indexOf(chunk)
 
@@ -195,7 +246,9 @@ function createQuestion(entry: SpellingEntry, index: number): QuizItem {
 }
 
 function buildRound() {
-  const round = shuffle([...spellingBank]).slice(0, questionsPerRound).map(createQuestion)
+  const harderEntries = spellingBank.filter((entry) => entry.word.length >= harderWordMinimumLength)
+  const sourceBank = harderEntries.length >= questionsPerRound ? harderEntries : spellingBank
+  const round = shuffle([...sourceBank]).slice(0, questionsPerRound).map(createQuestion)
   const firstQuestion = round[0]
 
   if (firstQuestion?.options[0] === firstQuestion.answer) {
