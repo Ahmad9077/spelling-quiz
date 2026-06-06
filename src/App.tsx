@@ -30,6 +30,14 @@ type QuizItem = {
 
 type AnswerResult = 'correct' | 'wrong'
 
+type TrackedAnswer = {
+  correct: boolean
+  expected: string
+  prompt: string
+  selected: string
+  word: string
+}
+
 const questionsPerRound = 20
 const harderWordMinimumLength = 7
 const answerOptionsPerQuestion = 5
@@ -338,6 +346,7 @@ function App() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [isFinished, setIsFinished] = useState(false)
   const [answerResults, setAnswerResults] = useState<AnswerResult[]>([])
+  const [trackedAnswers, setTrackedAnswers] = useState<TrackedAnswer[]>([])
   const nextButtonRef = useRef<HTMLButtonElement>(null)
   const restartButtonRef = useRef<HTMLButtonElement>(null)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
@@ -375,9 +384,9 @@ function App() {
       score,
       total: totalQuestions,
       level: score === totalQuestions ? 'A+' : score >= Math.ceil(totalQuestions * 0.7) ? 'A' : 'Practice',
-      details: { wrongCount }
+      details: { wrongCount, answers: trackedAnswers }
     })
-  }, [isFinished, score, totalQuestions, wrongCount])
+  }, [isFinished, score, totalQuestions, trackedAnswers, wrongCount])
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return
@@ -401,6 +410,16 @@ function App() {
 
     setSelectedAnswer(answer)
     setAnswerResults((results) => [...results, answerIsCorrect ? 'correct' : 'wrong'])
+    setTrackedAnswers((results) => [
+      ...results,
+      {
+        correct: answerIsCorrect,
+        expected: currentItem.answer,
+        prompt: currentItem.clue,
+        selected: answer,
+        word: currentItem.word,
+      },
+    ])
 
     if (answerIsCorrect) {
       setScore((count) => count + 1)
@@ -426,6 +445,7 @@ function App() {
     setScore(0)
     setSelectedAnswer(null)
     setAnswerResults([])
+    setTrackedAnswers([])
   }
 
   const missingLetters = (selectedAnswer ?? currentItem.answer).split('')
