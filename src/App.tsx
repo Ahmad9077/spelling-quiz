@@ -4,6 +4,20 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { type SpellingEntry, spellingBank } from './quizBank'
 
+declare global {
+  interface Window {
+    QuizzesHubProgress?: {
+      record: (result: {
+        quizId: string
+        score: number
+        total: number
+        level?: string
+        details?: Record<string, unknown>
+      }) => Promise<{ ok: boolean; reason?: string }>
+    }
+  }
+}
+
 type QuizItem = {
   answer: string
   before: string
@@ -352,6 +366,18 @@ function App() {
   useEffect(() => {
     if (isFinished) restartButtonRef.current?.focus()
   }, [isFinished])
+
+  useEffect(() => {
+    if (!isFinished) return
+
+    void window.QuizzesHubProgress?.record({
+      quizId: 'spelling',
+      score,
+      total: totalQuestions,
+      level: score === totalQuestions ? 'A+' : score >= Math.ceil(totalQuestions * 0.7) ? 'A' : 'Practice',
+      details: { wrongCount }
+    })
+  }, [isFinished, score, totalQuestions, wrongCount])
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return
