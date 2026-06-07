@@ -4003,6 +4003,338 @@ export const spellingBank: SpellingEntry[] = [
   {
     "word": "serve",
     "description": "A stroke that puts the ball in play."
+  },
+  {
+    "word": "across",
+    "description": "From one side to the other side."
+  },
+  {
+    "word": "adventure",
+    "description": "An exciting trip or experience."
+  },
+  {
+    "word": "airplane",
+    "description": "A flying vehicle with wings."
+  },
+  {
+    "word": "backpacker",
+    "description": "A person carrying a bag on their back."
+  },
+  {
+    "word": "bedtime",
+    "description": "The time when someone gets ready to sleep."
+  },
+  {
+    "word": "bookshelf",
+    "description": "A shelf used to hold books."
+  },
+  {
+    "word": "bracelet",
+    "description": "Jewelry worn around the wrist."
+  },
+  {
+    "word": "cheerful",
+    "description": "Happy and bright."
+  },
+  {
+    "word": "classroom",
+    "description": "A room where students learn."
+  },
+  {
+    "word": "coastline",
+    "description": "The place where land meets the sea."
+  },
+  {
+    "word": "cupcake",
+    "description": "A small cake for one person."
+  },
+  {
+    "word": "daylight",
+    "description": "Light from the sun during the day."
+  },
+  {
+    "word": "dinosaur",
+    "description": "A large animal that lived long ago."
+  },
+  {
+    "word": "doorknob",
+    "description": "The round handle used to open a door."
+  },
+  {
+    "word": "driveway",
+    "description": "A short road leading to a house or garage."
+  },
+  {
+    "word": "evergreen",
+    "description": "A plant or tree that stays green all year."
+  },
+  {
+    "word": "flashlight",
+    "description": "A small hand-held light."
+  },
+  {
+    "word": "friendship",
+    "description": "A kind relationship between friends."
+  },
+  {
+    "word": "grasshopper",
+    "description": "A jumping insect with long back legs."
+  },
+  {
+    "word": "handprint",
+    "description": "A mark made by a hand."
+  },
+  {
+    "word": "homework",
+    "description": "School work done after class."
+  },
+  {
+    "word": "jellybean",
+    "description": "A small bean-shaped candy."
+  },
+  {
+    "word": "joystick",
+    "description": "A stick control used for games or machines."
+  },
+  {
+    "word": "lemonade",
+    "description": "A sweet drink made with lemons."
+  },
+  {
+    "word": "lunchbox",
+    "description": "A box used to carry lunch."
+  },
+  {
+    "word": "moonlight",
+    "description": "Light from the moon."
+  },
+  {
+    "word": "notebook",
+    "description": "A book with blank pages for writing."
+  },
+  {
+    "word": "pancake",
+    "description": "A flat round cake cooked in a pan."
+  },
+  {
+    "word": "raincoat",
+    "description": "A coat worn to stay dry in rain."
+  },
+  {
+    "word": "sailboat",
+    "description": "A boat moved by the wind."
+  },
+  {
+    "word": "sandbox",
+    "description": "A box or area filled with sand for play."
+  },
+  {
+    "word": "seashore",
+    "description": "Land beside the sea."
+  },
+  {
+    "word": "shoelace",
+    "description": "A string used to tie a shoe."
+  },
+  {
+    "word": "skateboard",
+    "description": "A board with wheels for riding."
+  },
+  {
+    "word": "snowflake",
+    "description": "A tiny piece of falling snow."
+  },
+  {
+    "word": "songbird",
+    "description": "A bird known for singing."
+  },
+  {
+    "word": "spaceship",
+    "description": "A vehicle that travels in space."
+  },
+  {
+    "word": "starfish",
+    "description": "A sea animal shaped like a star."
+  },
+  {
+    "word": "starlight",
+    "description": "Light from the stars."
+  },
+  {
+    "word": "storybook",
+    "description": "A book filled with stories."
+  },
+  {
+    "word": "strawberry",
+    "description": "A sweet red fruit."
+  },
+  {
+    "word": "sunshine",
+    "description": "Bright light from the sun."
+  },
+  {
+    "word": "teaspoon",
+    "description": "A small spoon used for tea or measuring."
+  },
+  {
+    "word": "toothbrush",
+    "description": "A brush used to clean teeth."
+  },
+  {
+    "word": "treetop",
+    "description": "The highest branches of a tree."
+  },
+  {
+    "word": "waterfall",
+    "description": "Water falling from a high place."
+  },
+  {
+    "word": "watermelon",
+    "description": "A large green fruit with sweet red inside."
+  },
+  {
+    "word": "windmill",
+    "description": "A building or machine with blades turned by wind."
+  },
+  {
+    "word": "workshop",
+    "description": "A room or place where things are made or fixed."
+  },
+  {
+    "word": "zigzag",
+    "description": "A line that turns one way and then the other."
+  },
+  {
+    "word": "cartwheel",
+    "description": "A sideways roll using hands and feet."
+  },
+  {
+    "word": "chalkboard",
+    "description": "A board used for writing with chalk."
+  },
+  {
+    "word": "cloudburst",
+    "description": "A sudden heavy fall of rain."
+  },
+  {
+    "word": "courtyard",
+    "description": "An open area surrounded by buildings."
+  },
+  {
+    "word": "daydream",
+    "description": "A happy thought while awake."
+  },
+  {
+    "word": "dragonfly",
+    "description": "An insect with long wings and a thin body."
+  },
+  {
+    "word": "firefly",
+    "description": "A small insect that glows at night."
+  },
+  {
+    "word": "footstep",
+    "description": "The sound or mark made by a foot."
+  },
+  {
+    "word": "hairbrush",
+    "description": "A brush used on hair."
+  },
+  {
+    "word": "heartbeat",
+    "description": "One beat of the heart."
+  },
+  {
+    "word": "hillside",
+    "description": "The side of a hill."
+  },
+  {
+    "word": "hopscotch",
+    "description": "A jumping game played on marked squares."
+  },
+  {
+    "word": "houseboat",
+    "description": "A boat that people can live in."
+  },
+  {
+    "word": "ladybug",
+    "description": "A small round beetle often red with spots."
+  },
+  {
+    "word": "mailbox",
+    "description": "A box where letters are delivered."
+  },
+  {
+    "word": "nightlight",
+    "description": "A small light used at night."
+  },
+  {
+    "word": "paperclip",
+    "description": "A small clip used to hold papers together."
+  },
+  {
+    "word": "pencilcase",
+    "description": "A case used to carry pencils."
+  },
+  {
+    "word": "porchlight",
+    "description": "A light outside near a door."
+  },
+  {
+    "word": "raindrop",
+    "description": "A single drop of rain."
+  },
+  {
+    "word": "riverbank",
+    "description": "The land along the side of a river."
+  },
+  {
+    "word": "seashell",
+    "description": "A shell found by the sea."
+  },
+  {
+    "word": "snowball",
+    "description": "A ball made of snow."
+  },
+  {
+    "word": "stairway",
+    "description": "A set of stairs."
+  },
+  {
+    "word": "sunflower",
+    "description": "A tall yellow flower."
+  },
+  {
+    "word": "tabletop",
+    "description": "The flat top of a table."
+  },
+  {
+    "word": "thunderstorm",
+    "description": "A storm with thunder and lightning."
+  },
+  {
+    "word": "toolbox",
+    "description": "A box used to carry tools."
+  },
+  {
+    "word": "toothpick",
+    "description": "A small stick used to clean between teeth."
+  },
+  {
+    "word": "trailhead",
+    "description": "The place where a path or trail begins."
+  },
+  {
+    "word": "treehouse",
+    "description": "A small play house built in a tree."
+  },
+  {
+    "word": "windowsill",
+    "description": "The flat ledge at the bottom of a window."
+  },
+  {
+    "word": "wonderland",
+    "description": "A place that feels full of wonderful things."
   }
 ]
 

@@ -143,31 +143,6 @@ h1 {
   background: #ffd166;
 }
 
-.reset-button {
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 12px;
-  border: 2px solid #17202b;
-  border-radius: 8px;
-  background: #ffffff;
-  color: #17202b;
-  font-size: 0.82rem;
-  font-weight: 900;
-  cursor: pointer;
-  transition:
-    transform 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.reset-button:hover,
-.reset-button:focus-visible {
-  transform: translateY(-1px);
-  box-shadow: 0 5px 0 #d8d0c1;
-}
-
 .word-card {
   position: relative;
   display: grid;
@@ -475,11 +450,6 @@ h1 {
 
   .quiz-topline {
     grid-template-columns: auto 1fr;
-  }
-
-  .reset-button {
-    grid-column: 1 / -1;
-    justify-self: end;
   }
 
   .word-card {

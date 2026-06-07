@@ -1,4 +1,4 @@
-import { ArrowRight, RotateCcw, Volume2 } from 'lucide-react'
+import { ArrowRight, Volume2 } from 'lucide-react'
 import type { MutableRefObject } from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
@@ -356,17 +356,64 @@ type AppProps = {
   difficulty: Difficulty
 }
 
+type SavedSpellingSession = {
+  answerResults: AnswerResult[]
+  currentIndex: number
+  difficulty: Difficulty
+  quizItems: QuizItem[]
+  score: number
+  selectedAnswer: string | null
+  trackedAnswers: TrackedAnswer[]
+  version: 1
+}
+
+const storageKeyFor = (difficulty: Difficulty) => `spelling:active-session:${difficulty}:v1`
+
+function loadSavedSession(difficulty: Difficulty): SavedSpellingSession | null {
+  try {
+    const raw = window.localStorage.getItem(storageKeyFor(difficulty))
+    if (!raw) return null
+
+    const parsed = JSON.parse(raw) as SavedSpellingSession
+    if (
+      parsed?.version !== 1 ||
+      parsed.difficulty !== difficulty ||
+      !Array.isArray(parsed.quizItems) ||
+      parsed.quizItems.length === 0 ||
+      !Number.isInteger(parsed.currentIndex) ||
+      parsed.currentIndex < 0 ||
+      parsed.currentIndex >= parsed.quizItems.length ||
+      !Array.isArray(parsed.answerResults) ||
+      !Array.isArray(parsed.trackedAnswers)
+    ) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function clearSavedSession(difficulty: Difficulty) {
+  try {
+    window.localStorage.removeItem(storageKeyFor(difficulty))
+  } catch {
+    // Ignore storage failures; the quiz can still run in memory.
+  }
+}
+
 function App({ difficulty }: AppProps) {
   const settings = difficultySettings[difficulty]
-  const [quizItems, setQuizItems] = useState<QuizItem[]>(() => buildRound(difficulty))
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [score, setScore] = useState(0)
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
+  const [savedSession] = useState<SavedSpellingSession | null>(() => loadSavedSession(difficulty))
+  const [quizItems, setQuizItems] = useState<QuizItem[]>(() => savedSession?.quizItems ?? buildRound(difficulty))
+  const [currentIndex, setCurrentIndex] = useState(() => savedSession?.currentIndex ?? 0)
+  const [score, setScore] = useState(() => savedSession?.score ?? 0)
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(() => savedSession?.selectedAnswer ?? null)
   const [isFinished, setIsFinished] = useState(false)
-  const [answerResults, setAnswerResults] = useState<AnswerResult[]>([])
-  const [trackedAnswers, setTrackedAnswers] = useState<TrackedAnswer[]>([])
+  const [answerResults, setAnswerResults] = useState<AnswerResult[]>(() => savedSession?.answerResults ?? [])
+  const [trackedAnswers, setTrackedAnswers] = useState<TrackedAnswer[]>(() => savedSession?.trackedAnswers ?? [])
   const nextButtonRef = useRef<HTMLButtonElement>(null)
-  const restartButtonRef = useRef<HTMLButtonElement>(null)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   const currentItem = quizItems[currentIndex]
@@ -391,10 +438,6 @@ function App({ difficulty }: AppProps) {
   }, [hasAnswered])
 
   useEffect(() => {
-    if (isFinished) restartButtonRef.current?.focus()
-  }, [isFinished])
-
-  useEffect(() => {
     if (!isFinished) return
 
     void window.QuizzesHubProgress?.record({
@@ -405,6 +448,31 @@ function App({ difficulty }: AppProps) {
       details: { difficulty, wrongCount, answers: trackedAnswers }
     })
   }, [difficulty, isFinished, score, totalQuestions, trackedAnswers, wrongCount])
+
+  useEffect(() => {
+    if (isFinished) {
+      clearSavedSession(difficulty)
+      return
+    }
+
+    try {
+      window.localStorage.setItem(
+        storageKeyFor(difficulty),
+        JSON.stringify({
+          answerResults,
+          currentIndex,
+          difficulty,
+          quizItems,
+          score,
+          selectedAnswer,
+          trackedAnswers,
+          version: 1,
+        } satisfies SavedSpellingSession),
+      )
+    } catch {
+      // Ignore storage failures; the current in-memory session remains valid.
+    }
+  }, [answerResults, currentIndex, difficulty, isFinished, quizItems, score, selectedAnswer, trackedAnswers])
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return
@@ -456,7 +524,8 @@ function App({ difficulty }: AppProps) {
     setCurrentIndex((index) => index + 1)
   }
 
-  function restartQuiz() {
+  function startNextRound() {
+    clearSavedSession(difficulty)
     setQuizItems(buildRound(difficulty))
     setCurrentIndex(0)
     setIsFinished(false)
@@ -510,16 +579,6 @@ function App({ difficulty }: AppProps) {
               return <span className={state} key={`${item.word}-${index}`} />
             })}
           </div>
-          {!isFinished && (
-            <button
-              className="reset-button"
-              type="button"
-              onClick={restartQuiz}
-            >
-              <RotateCcw aria-hidden="true" size={16} />
-              Reset
-            </button>
-          )}
         </div>
 
         {isFinished ? (
@@ -537,12 +596,11 @@ function App({ difficulty }: AppProps) {
             </p>
             <button
               className="action-button"
-              ref={restartButtonRef}
               type="button"
-              onClick={restartQuiz}
+              onClick={startNextRound}
             >
-              <RotateCcw aria-hidden="true" size={18} />
-              Play again
+              Next round
+              <ArrowRight aria-hidden="true" size={18} />
             </button>
           </div>
         ) : (
