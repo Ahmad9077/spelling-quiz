@@ -29,6 +29,7 @@ type QuizItem = {
 }
 
 type AnswerResult = 'correct' | 'wrong'
+type Difficulty = 'easy' | 'medium' | 'hard'
 
 type TrackedAnswer = {
   correct: boolean
@@ -38,9 +39,18 @@ type TrackedAnswer = {
   word: string
 }
 
-const questionsPerRound = 20
 const harderWordMinimumLength = 7
-const answerOptionsPerQuestion = 5
+
+const difficultySettings: Record<Difficulty, {
+  answerOptionsPerQuestion: number
+  label: string
+  questionsPerRound: number
+  useHarderWords: boolean
+}> = {
+  easy: { answerOptionsPerQuestion: 4, label: 'Easy', questionsPerRound: 12, useHarderWords: false },
+  medium: { answerOptionsPerQuestion: 5, label: 'Medium', questionsPerRound: 20, useHarderWords: true },
+  hard: { answerOptionsPerQuestion: 5, label: 'Hard', questionsPerRound: 25, useHarderWords: true },
+}
 
 const oneLetterChoices = [
   'a',
@@ -258,7 +268,7 @@ function chooseMissingPart(word: string) {
   }
 }
 
-function buildOptions(answer: string) {
+function buildOptions(answer: string, answerOptionsPerQuestion: number) {
   const pool =
     answer.length === 1
       ? vowelChoices.includes(answer)
@@ -274,7 +284,7 @@ function buildOptions(answer: string) {
   return options
 }
 
-function createQuestion(entry: SpellingEntry, index: number): QuizItem {
+function createQuestion(entry: SpellingEntry, index: number, answerOptionsPerQuestion: number): QuizItem {
   const cleanWord = entry.word.toLowerCase()
   const missingPart = chooseMissingPart(cleanWord)
 
@@ -282,19 +292,22 @@ function createQuestion(entry: SpellingEntry, index: number): QuizItem {
     ...missingPart,
     clue: `Question ${index + 1}: ${entry.description}`,
     description: entry.description,
-    options: buildOptions(missingPart.answer),
+    options: buildOptions(missingPart.answer, answerOptionsPerQuestion),
     word: cleanWord,
   }
 }
 
-function buildRound() {
+function buildRound(difficulty: Difficulty) {
+  const settings = difficultySettings[difficulty]
   const harderEntries = spellingBank.filter((entry) => entry.word.length >= harderWordMinimumLength)
-  const sourceBank = harderEntries.length >= questionsPerRound ? harderEntries : spellingBank
-  const round = shuffle([...sourceBank]).slice(0, questionsPerRound).map(createQuestion)
+  const sourceBank = settings.useHarderWords && harderEntries.length >= settings.questionsPerRound ? harderEntries : spellingBank
+  const round = shuffle([...sourceBank])
+    .slice(0, settings.questionsPerRound)
+    .map((entry, index) => createQuestion(entry, index, settings.answerOptionsPerQuestion))
   const firstQuestion = round[0]
 
   if (firstQuestion?.options[0] === firstQuestion.answer) {
-    const swapIndex = 1 + Math.floor(Math.random() * (answerOptionsPerQuestion - 1))
+    const swapIndex = 1 + Math.floor(Math.random() * (settings.answerOptionsPerQuestion - 1))
     ;[firstQuestion.options[0], firstQuestion.options[swapIndex]] = [
       firstQuestion.options[swapIndex],
       firstQuestion.options[0],
@@ -339,8 +352,13 @@ function sayWord(word: string, utteranceRef: MutableRefObject<SpeechSynthesisUtt
   window.speechSynthesis.speak(utterance)
 }
 
-function App() {
-  const [quizItems, setQuizItems] = useState<QuizItem[]>(() => buildRound())
+type AppProps = {
+  difficulty: Difficulty
+}
+
+function App({ difficulty }: AppProps) {
+  const settings = difficultySettings[difficulty]
+  const [quizItems, setQuizItems] = useState<QuizItem[]>(() => buildRound(difficulty))
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
@@ -384,9 +402,9 @@ function App() {
       score,
       total: totalQuestions,
       level: score === totalQuestions ? 'A+' : score >= Math.ceil(totalQuestions * 0.7) ? 'A' : 'Practice',
-      details: { wrongCount, answers: trackedAnswers }
+      details: { difficulty, wrongCount, answers: trackedAnswers }
     })
-  }, [isFinished, score, totalQuestions, trackedAnswers, wrongCount])
+  }, [difficulty, isFinished, score, totalQuestions, trackedAnswers, wrongCount])
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return
@@ -439,7 +457,7 @@ function App() {
   }
 
   function restartQuiz() {
-    setQuizItems(buildRound())
+    setQuizItems(buildRound(difficulty))
     setCurrentIndex(0)
     setIsFinished(false)
     setScore(0)
@@ -454,7 +472,7 @@ function App() {
     <main className="quiz-shell">
       <section className="hero-panel" aria-labelledby="page-title">
         <div className="hero-copy">
-          <p className="eyebrow">Spelling practice</p>
+          <p className="eyebrow">{settings.label} · Spelling practice</p>
           <h1 id="page-title">Tiny Letter Quiz</h1>
         </div>
         <div className="score-panel" aria-label="Quiz results so far">

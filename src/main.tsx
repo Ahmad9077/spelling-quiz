@@ -5,8 +5,18 @@ import App from './App.tsx'
 
 declare global {
   interface Window {
-    QuizzesHubAccessReady?: Promise<unknown>
+    QuizzesHubAccessReady?: Promise<{ difficulty?: string }>
   }
+}
+
+type Difficulty = 'easy' | 'medium' | 'hard'
+
+const normalizeDifficulty = (value: string | undefined): Difficulty => {
+  if (value === 'easy' || value === 'hard') {
+    return value
+  }
+
+  return 'medium'
 }
 
 async function renderApp() {
@@ -15,18 +25,18 @@ async function renderApp() {
       throw new Error('Missing Quizzes Hub access guard.')
     }
 
-    await window.QuizzesHubAccessReady
+    const access = await window.QuizzesHubAccessReady
+    const difficulty = normalizeDifficulty(access.difficulty)
+
+    createRoot(document.getElementById('root')!).render(
+      <StrictMode>
+        <App difficulty={difficulty} />
+      </StrictMode>,
+    )
   } catch {
     document.documentElement.dataset.quizAccess = 'denied'
     document.getElementById('root')!.textContent = 'Please open this quiz from Quizzes Hub.'
-    return
   }
-
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
-  )
 }
 
 void renderApp()
