@@ -18,7 +18,7 @@ declare global {
     QuizzesHubAdaptive?: {
       recordAttempt: (answers: Array<{ question: { key: string }, correct: boolean }>) => Promise<{ ok: boolean; reason?: string }>
     }
-    QuizzesHubAdaptiveReady?: Promise<unknown>
+    QuizzesHubAdaptiveReady?: Promise<{ question_keys?: string[] }>
   }
 }
 
@@ -301,11 +301,15 @@ function createQuestion(entry: SpellingEntry, index: number, answerOptionsPerQue
   }
 }
 
-function buildRound(difficulty: Difficulty) {
+function buildRound(difficulty: Difficulty, preferredKeys: string[] = []) {
   const settings = difficultySettings[difficulty]
   const harderEntries = spellingBank.filter((entry) => entry.word.length >= harderWordMinimumLength)
   const sourceBank = settings.useHarderWords && harderEntries.length >= settings.questionsPerRound ? harderEntries : spellingBank
-  const round = shuffle([...sourceBank])
+  const preferredEntries = preferredKeys
+    .map((key) => sourceBank.find((entry) => entry.word === key))
+    .filter((entry): entry is SpellingEntry => Boolean(entry))
+  const preferredWords = new Set(preferredEntries.map((entry) => entry.word))
+  const round = [...preferredEntries, ...shuffle(sourceBank.filter((entry) => !preferredWords.has(entry.word)))]
     .slice(0, settings.questionsPerRound)
     .map((entry, index) => createQuestion(entry, index, settings.answerOptionsPerQuestion))
   const firstQuestion = round[0]
@@ -491,6 +495,23 @@ function App({ difficulty }: AppProps) {
       // Ignore storage failures; the current in-memory session remains valid.
     }
   }, [answerResults, currentIndex, difficulty, isFinished, quizItems, score, selectedAnswer, trackedAnswers])
+
+  useEffect(() => {
+    if (savedSession || currentIndex !== 0 || selectedAnswer || trackedAnswers.length > 0) return
+
+    let cancelled = false
+
+    void window.QuizzesHubAdaptiveReady?.then((plan) => {
+      const preferredKeys = Array.isArray(plan?.question_keys) ? plan.question_keys : []
+      if (cancelled || preferredKeys.length === 0) return
+
+      setQuizItems(buildRound(difficulty, preferredKeys))
+    }).catch(() => null)
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentIndex, difficulty, savedSession, selectedAnswer, trackedAnswers.length])
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return
