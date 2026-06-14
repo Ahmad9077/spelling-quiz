@@ -19,7 +19,31 @@ declare global {
       recordAttempt: (answers: Array<{ question: { key: string }, correct: boolean }>) => Promise<{ ok: boolean; reason?: string }>
     }
     QuizzesHubAdaptiveReady?: Promise<{ question_keys?: string[] }>
+    QuizzesHubChallenge?: {
+      active: boolean
+      currentUserId: string | null
+      canAnswer: () => boolean
+      onChange: (listener: (state: ChallengeState) => void) => () => void
+      openHub: () => void
+      submitAnswer: (answer: { answerText: string; isCorrect: boolean }) => Promise<{ ok: boolean; reason?: string }>
+    }
+    QuizzesHubChallengeReady?: Promise<ChallengeState>
   }
+}
+
+type ChallengePlayer = {
+  display_name: string
+  user_id: string
+  wrong_count: number
+}
+
+type ChallengeState = {
+  current_answering_user_id: string | null
+  current_question_key: string | null
+  current_turn_index: number
+  players: ChallengePlayer[]
+  status: 'waiting' | 'active' | 'finished' | 'abandoned'
+  winner_id: string | null
 }
 
 type QuizItem = {
@@ -411,41 +435,56 @@ function clearSavedSession(difficulty: Difficulty) {
   }
 }
 
+function getChallengeWinnerText(state: ChallengeState | null) {
+  const winner = state?.players.find((player) => player.user_id === state.winner_id)
+  return winner ? `${winner.display_name} wins` : 'Challenge finished'
+}
+
 function App({ difficulty }: AppProps) {
+  const isChallengeMode = Boolean(window.QuizzesHubChallenge?.active)
   const settings = difficultySettings[difficulty]
-  const [savedSession] = useState<SavedSpellingSession | null>(() => loadSavedSession(difficulty))
-  const [quizItems, setQuizItems] = useState<QuizItem[]>(() => savedSession?.quizItems ?? buildRound(difficulty))
+  const [savedSession] = useState<SavedSpellingSession | null>(() => isChallengeMode ? null : loadSavedSession(difficulty))
+  const [quizItems, setQuizItems] = useState<QuizItem[]>(() => savedSession?.quizItems ?? (isChallengeMode ? [] : buildRound(difficulty)))
   const [currentIndex, setCurrentIndex] = useState(() => savedSession?.currentIndex ?? 0)
   const [score, setScore] = useState(() => savedSession?.score ?? 0)
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(() => savedSession?.selectedAnswer ?? null)
   const [isFinished, setIsFinished] = useState(false)
   const [answerResults, setAnswerResults] = useState<AnswerResult[]>(() => savedSession?.answerResults ?? [])
   const [trackedAnswers, setTrackedAnswers] = useState<TrackedAnswer[]>(() => savedSession?.trackedAnswers ?? [])
+  const [challengeState, setChallengeState] = useState<ChallengeState | null>(null)
+  const [challengeError, setChallengeError] = useState<string | null>(null)
   const nextButtonRef = useRef<HTMLButtonElement>(null)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
 
   const currentItem = quizItems[currentIndex]
   const totalQuestions = quizItems.length
   const hasAnswered = selectedAnswer !== null
-  const isCorrect = selectedAnswer === currentItem.answer
+  const isCorrect = currentItem ? selectedAnswer === currentItem.answer : false
   const wrongCount = answerResults.filter((result) => result === 'wrong').length
 
   const message = useMemo(() => {
+    if (isChallengeMode && challengeError) return challengeError
+    if (isChallengeMode && !currentItem) {
+      if (challengeState?.status === 'finished') return getChallengeWinnerText(challengeState)
+      return 'Waiting for the challenge session.'
+    }
     if (isFinished) {
       if (score === totalQuestions) return 'Perfect spelling!'
       if (score >= Math.ceil(totalQuestions * 0.7)) return 'Great work!'
       return 'Good practice!'
     }
 
+    if (!currentItem) return 'Loading.'
     if (!hasAnswered) return currentItem.clue
     return isCorrect ? 'Correct!' : `It is ${currentItem.word}.`
-  }, [currentItem.clue, currentItem.word, hasAnswered, isCorrect, isFinished, score, totalQuestions])
+  }, [challengeError, challengeState, currentItem, hasAnswered, isChallengeMode, isCorrect, isFinished, score, totalQuestions])
 
   useEffect(() => {
     if (hasAnswered) nextButtonRef.current?.focus()
   }, [hasAnswered])
 
   useEffect(() => {
+    if (isChallengeMode) return
     if (!isFinished) return
 
     const progressPayload = {
@@ -469,9 +508,10 @@ function App({ difficulty }: AppProps) {
         await window.QuizzesHubProgress?.record(progressPayload)
       }
     })()
-  }, [difficulty, isFinished, score, totalQuestions, trackedAnswers, wrongCount])
+  }, [difficulty, isChallengeMode, isFinished, score, totalQuestions, trackedAnswers, wrongCount])
 
   useEffect(() => {
+    if (isChallengeMode) return
     if (isFinished) {
       clearSavedSession(difficulty)
       return
@@ -494,9 +534,10 @@ function App({ difficulty }: AppProps) {
     } catch {
       // Ignore storage failures; the current in-memory session remains valid.
     }
-  }, [answerResults, currentIndex, difficulty, isFinished, quizItems, score, selectedAnswer, trackedAnswers])
+  }, [answerResults, currentIndex, difficulty, isChallengeMode, isFinished, quizItems, score, selectedAnswer, trackedAnswers])
 
   useEffect(() => {
+    if (isChallengeMode) return
     if (savedSession || currentIndex !== 0 || selectedAnswer || trackedAnswers.length > 0) return
 
     let cancelled = false
@@ -511,7 +552,52 @@ function App({ difficulty }: AppProps) {
     return () => {
       cancelled = true
     }
-  }, [currentIndex, difficulty, savedSession, selectedAnswer, trackedAnswers.length])
+  }, [currentIndex, difficulty, isChallengeMode, savedSession, selectedAnswer, trackedAnswers.length])
+
+  useEffect(() => {
+    if (!isChallengeMode) return
+
+    let unsubscribe: (() => void) | undefined
+    let cancelled = false
+
+    const applyChallengeState = (state: ChallengeState) => {
+      if (cancelled) return
+      setChallengeState(state)
+      setChallengeError(null)
+      setSelectedAnswer(null)
+      setAnswerResults([])
+      setTrackedAnswers([])
+      setScore(0)
+      setCurrentIndex(0)
+      setIsFinished(state.status === 'finished')
+
+      if (state.status !== 'active' || !state.current_question_key) {
+        setQuizItems([])
+        return
+      }
+
+      const entry = spellingBank.find((item) => item.word === state.current_question_key)
+      if (!entry) {
+        setQuizItems([])
+        setChallengeError('This challenge question is not available in this quiz version.')
+        return
+      }
+
+      setQuizItems([createQuestion(entry, state.current_turn_index, difficultySettings.medium.answerOptionsPerQuestion)])
+    }
+
+    void window.QuizzesHubChallengeReady?.then((state) => {
+      applyChallengeState(state)
+      unsubscribe = window.QuizzesHubChallenge?.onChange(applyChallengeState)
+    }).catch(() => {
+      setChallengeError('Could not open this challenge. Please return to Quizzes Hub.')
+    })
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
+  }, [isChallengeMode])
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) return
@@ -529,7 +615,8 @@ function App({ difficulty }: AppProps) {
   }, [])
 
   function handleAnswer(answer: string) {
-    if (hasAnswered || isFinished) return
+    if (hasAnswered || isFinished || !currentItem) return
+    if (isChallengeMode && !window.QuizzesHubChallenge?.canAnswer()) return
 
     const answerIsCorrect = answer === currentItem.answer
 
@@ -549,9 +636,25 @@ function App({ difficulty }: AppProps) {
     if (answerIsCorrect) {
       setScore((count) => count + 1)
     }
+
+    if (isChallengeMode) {
+      void window.QuizzesHubChallenge?.submitAnswer({
+        answerText: answer,
+        isCorrect: answerIsCorrect,
+      }).then((result) => {
+        if (!result?.ok) {
+          setChallengeError(result?.reason || 'Could not submit answer.')
+        }
+      })
+    }
   }
 
   function goNext() {
+    if (isChallengeMode) {
+      window.QuizzesHubChallenge?.openHub()
+      return
+    }
+
     if (!hasAnswered) return
 
     if (currentIndex === totalQuestions - 1) {
@@ -564,6 +667,11 @@ function App({ difficulty }: AppProps) {
   }
 
   function startNextRound() {
+    if (isChallengeMode) {
+      window.QuizzesHubChallenge?.openHub()
+      return
+    }
+
     clearSavedSession(difficulty)
     setQuizItems(buildRound(difficulty))
     setCurrentIndex(0)
@@ -574,13 +682,34 @@ function App({ difficulty }: AppProps) {
     setTrackedAnswers([])
   }
 
+  if (!currentItem) {
+    return (
+      <main className="quiz-shell">
+        <section className="quiz-board">
+          <div className="finish-state">
+            <div className="finish-badge">Challenge</div>
+            <h2>{message}</h2>
+            <button
+              className="action-button"
+              type="button"
+              onClick={() => window.QuizzesHubChallenge?.openHub()}
+            >
+              Back to Hub
+              <ArrowRight aria-hidden="true" size={18} />
+            </button>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
   const missingLetters = (selectedAnswer ?? currentItem.answer).split('')
 
   return (
     <main className="quiz-shell">
       <section className="hero-panel" aria-labelledby="page-title">
         <div className="hero-copy">
-          <p className="eyebrow">{settings.label} · Spelling practice</p>
+          <p className="eyebrow">{isChallengeMode ? 'Challenge Mode' : `${settings.label} · Spelling practice`}</p>
           <h1 id="page-title">Tiny Letter Quiz</h1>
         </div>
         <div className="score-panel" aria-label="Quiz results so far">
@@ -598,7 +727,7 @@ function App({ difficulty }: AppProps) {
       <section className="quiz-board">
         <div className="quiz-topline">
           <span>
-            {isFinished ? totalQuestions : currentIndex + 1} / {totalQuestions}
+            {isChallengeMode ? `Challenge ${challengeState?.current_turn_index ?? 1}` : `${isFinished ? totalQuestions : currentIndex + 1} / ${totalQuestions}`}
           </span>
           <div
             aria-label={`${score} correct, ${wrongCount} wrong`}
@@ -629,7 +758,9 @@ function App({ difficulty }: AppProps) {
             </div>
             <h2>{message}</h2>
             <p>
-              {score >= Math.ceil(totalQuestions * 0.7)
+              {isChallengeMode
+                ? 'Return to Quizzes Hub when you are done.'
+                : score >= Math.ceil(totalQuestions * 0.7)
                 ? 'You are ready for the next round.'
                 : 'Try again and build the words slowly.'}
             </p>
@@ -638,7 +769,7 @@ function App({ difficulty }: AppProps) {
               type="button"
               onClick={startNextRound}
             >
-              Next round
+              {isChallengeMode ? 'Back to Hub' : 'Next round'}
               <ArrowRight aria-hidden="true" size={18} />
             </button>
           </div>
@@ -679,7 +810,7 @@ function App({ difficulty }: AppProps) {
                 return (
                   <button
                     className={`answer-tile ${stateClass}`}
-                    disabled={hasAnswered}
+                    disabled={hasAnswered || (isChallengeMode && !window.QuizzesHubChallenge?.canAnswer())}
                     key={option}
                     onClick={() => handleAnswer(option)}
                     type="button"
@@ -705,7 +836,7 @@ function App({ difficulty }: AppProps) {
                 type="button"
                 onClick={goNext}
               >
-                Continue
+                {isChallengeMode ? 'Back to Hub' : 'Continue'}
                 <ArrowRight aria-hidden="true" size={18} />
               </button>
             </div>
