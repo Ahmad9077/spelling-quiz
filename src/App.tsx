@@ -41,6 +41,14 @@ type ChallengeState = {
   current_answering_user_id: string | null
   current_question_key: string | null
   current_turn_index: number
+  last_turn?: {
+    answering_player_id: string
+    answer_text?: string | null
+    answered_at?: string
+    is_correct: boolean
+    question_key: string
+    turn_index: number
+  } | null
   players: ChallengePlayer[]
   status: 'waiting' | 'active' | 'finished' | 'abandoned'
   winner_id: string | null
@@ -437,7 +445,51 @@ function clearSavedSession(difficulty: Difficulty) {
 
 function getChallengeWinnerText(state: ChallengeState | null) {
   const winner = state?.players.find((player) => player.user_id === state.winner_id)
-  return winner ? `${winner.display_name} wins` : 'Challenge finished'
+  return winner ? `🎉 ${winner.display_name} wins!` : '🎉 Challenge finished'
+}
+
+function getChallengeScoreText(state: ChallengeState | null) {
+  if (!state?.players.length) return ''
+  return state.players.map((player) => `${player.display_name}: ${player.wrong_count}/3`).join(' · ')
+}
+
+function getChallengeTurnId(turn: ChallengeState['last_turn']) {
+  if (!turn) return null
+  return `${turn.turn_index}:${turn.answering_player_id}:${turn.answered_at || ''}`
+}
+
+function createChallengeQuestion(entry: SpellingEntry, index: number, selected?: string | null) {
+  const question = withSeededRandom(`${entry.word}:${index}`, () => (
+    createQuestion(entry, index, difficultySettings.medium.answerOptionsPerQuestion)
+  ))
+  if (selected && selected !== question.answer && !question.options.includes(selected)) {
+    question.options = [...question.options.slice(0, -1), selected]
+  }
+  return question
+}
+
+function withSeededRandom<T>(seedText: string, callback: () => T) {
+  const originalRandom = Math.random
+  let seed = 2166136261
+
+  for (let index = 0; index < seedText.length; index += 1) {
+    seed ^= seedText.charCodeAt(index)
+    seed = Math.imul(seed, 16777619)
+  }
+
+  Math.random = () => {
+    seed += 0x6D2B79F5
+    let value = seed
+    value = Math.imul(value ^ value >>> 15, value | 1)
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61)
+    return ((value ^ value >>> 14) >>> 0) / 4294967296
+  }
+
+  try {
+    return callback()
+  } finally {
+    Math.random = originalRandom
+  }
 }
 
 function App({ difficulty }: AppProps) {
@@ -453,6 +505,8 @@ function App({ difficulty }: AppProps) {
   const [trackedAnswers, setTrackedAnswers] = useState<TrackedAnswer[]>(() => savedSession?.trackedAnswers ?? [])
   const [challengeState, setChallengeState] = useState<ChallengeState | null>(null)
   const [challengeError, setChallengeError] = useState<string | null>(null)
+  const challengeLastTurnIdRef = useRef<string | null>(null)
+  const challengeRevealTimerRef = useRef<number | null>(null)
   const nextButtonRef = useRef<HTMLButtonElement>(null)
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null)
 
@@ -560,7 +614,7 @@ function App({ difficulty }: AppProps) {
     let unsubscribe: (() => void) | undefined
     let cancelled = false
 
-    const applyChallengeState = (state: ChallengeState) => {
+    const applyChallengeQuestion = (state: ChallengeState) => {
       if (cancelled) return
       setChallengeState(state)
       setChallengeError(null)
@@ -583,10 +637,60 @@ function App({ difficulty }: AppProps) {
         return
       }
 
-      setQuizItems([createQuestion(entry, state.current_turn_index, difficultySettings.medium.answerOptionsPerQuestion)])
+      setQuizItems([createChallengeQuestion(entry, state.current_turn_index)])
+    }
+
+    const revealChallengeAnswer = (state: ChallengeState) => {
+      if (cancelled) return
+      const lastTurn = state.last_turn
+      const entry = spellingBank.find((item) => item.word === lastTurn?.question_key)
+      if (!lastTurn || !entry) {
+        applyChallengeQuestion(state)
+        return
+      }
+
+      const answerText = lastTurn.answer_text || ''
+      const question = createChallengeQuestion(entry, lastTurn.turn_index, answerText)
+      const answerIsCorrect = answerText === question.answer
+      setChallengeState(state)
+      setChallengeError(null)
+      setQuizItems([question])
+      setSelectedAnswer(answerText)
+      setAnswerResults([answerIsCorrect ? 'correct' : 'wrong'])
+      setTrackedAnswers([{
+        correct: answerIsCorrect,
+        expected: question.answer,
+        prompt: question.clue,
+        selected: answerText,
+        word: question.word,
+      }])
+      setScore(answerIsCorrect ? 1 : 0)
+      setCurrentIndex(0)
+      setIsFinished(false)
+
+      if (challengeRevealTimerRef.current) {
+        window.clearTimeout(challengeRevealTimerRef.current)
+      }
+      challengeRevealTimerRef.current = window.setTimeout(() => {
+        challengeRevealTimerRef.current = null
+        applyChallengeQuestion(state)
+      }, 2000)
+    }
+
+    const applyChallengeState = (state: ChallengeState) => {
+      const turnId = getChallengeTurnId(state.last_turn)
+      if (turnId && turnId !== challengeLastTurnIdRef.current) {
+        challengeLastTurnIdRef.current = turnId
+        revealChallengeAnswer(state)
+        return
+      }
+
+      if (challengeRevealTimerRef.current) return
+      applyChallengeQuestion(state)
     }
 
     void window.QuizzesHubChallengeReady?.then((state) => {
+      challengeLastTurnIdRef.current = getChallengeTurnId(state.last_turn)
       applyChallengeState(state)
       unsubscribe = window.QuizzesHubChallenge?.onChange(applyChallengeState)
     }).catch(() => {
@@ -595,6 +699,7 @@ function App({ difficulty }: AppProps) {
 
     return () => {
       cancelled = true
+      if (challengeRevealTimerRef.current) window.clearTimeout(challengeRevealTimerRef.current)
       unsubscribe?.()
     }
   }, [isChallengeMode])
@@ -713,21 +818,32 @@ function App({ difficulty }: AppProps) {
           <h1 id="page-title">Tiny Letter Quiz</h1>
         </div>
         <div className="score-panel" aria-label="Quiz results so far">
-          <div className="score-metric is-correct">
-            <span>{score}</span>
-            <small>correct</small>
-          </div>
-          <div className="score-metric is-wrong">
-            <span>{wrongCount}</span>
-            <small>wrong</small>
-          </div>
+          {isChallengeMode && challengeState?.players.length ? (
+            challengeState.players.map((player) => (
+              <div className="score-metric is-wrong" key={player.user_id}>
+                <span>{player.wrong_count}/3</span>
+                <small>{player.display_name}</small>
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="score-metric is-correct">
+                <span>{score}</span>
+                <small>correct</small>
+              </div>
+              <div className="score-metric is-wrong">
+                <span>{wrongCount}</span>
+                <small>wrong</small>
+              </div>
+            </>
+          )}
         </div>
       </section>
 
       <section className="quiz-board">
         <div className="quiz-topline">
           <span>
-            {isChallengeMode ? `Challenge ${challengeState?.current_turn_index ?? 1}` : `${isFinished ? totalQuestions : currentIndex + 1} / ${totalQuestions}`}
+            {isChallengeMode ? getChallengeScoreText(challengeState) || `Challenge ${challengeState?.current_turn_index ?? 1}` : `${isFinished ? totalQuestions : currentIndex + 1} / ${totalQuestions}`}
           </span>
           <div
             aria-label={`${score} correct, ${wrongCount} wrong`}
