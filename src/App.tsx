@@ -453,6 +453,17 @@ function getChallengeScoreText(state: ChallengeState | null) {
   return state.players.map((player) => `${player.display_name}: ${player.wrong_count}/3`).join(' · ')
 }
 
+function getChallengeHudText(state: ChallengeState | null) {
+  if (!state) return ''
+  const currentPlayer = state.players.find((player) => player.user_id === state.current_answering_user_id)
+  const turn = currentPlayer
+    ? currentPlayer.user_id === window.QuizzesHubChallenge?.currentUserId
+      ? 'Your turn'
+      : `${currentPlayer.display_name}'s turn`
+    : 'Challenge'
+  return `${turn} · ${getChallengeScoreText(state)}`
+}
+
 function getChallengeTurnId(turn: ChallengeState['last_turn']) {
   if (!turn) return null
   return `${turn.turn_index}:${turn.answering_player_id}:${turn.answered_at || ''}`
@@ -674,7 +685,7 @@ function App({ difficulty }: AppProps) {
       challengeRevealTimerRef.current = window.setTimeout(() => {
         challengeRevealTimerRef.current = null
         applyChallengeQuestion(state)
-      }, 2000)
+      }, 3000)
     }
 
     const applyChallengeState = (state: ChallengeState) => {
@@ -843,7 +854,7 @@ function App({ difficulty }: AppProps) {
       <section className="quiz-board">
         <div className="quiz-topline">
           <span>
-            {isChallengeMode ? getChallengeScoreText(challengeState) || `Challenge ${challengeState?.current_turn_index ?? 1}` : `${isFinished ? totalQuestions : currentIndex + 1} / ${totalQuestions}`}
+            {isChallengeMode ? getChallengeHudText(challengeState) || `Challenge ${challengeState?.current_turn_index ?? 1}` : `${isFinished ? totalQuestions : currentIndex + 1} / ${totalQuestions}`}
           </span>
           <div
             aria-label={`${score} correct, ${wrongCount} wrong`}
