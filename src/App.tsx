@@ -767,7 +767,6 @@ function App({ difficulty }: AppProps) {
 
   function goNext() {
     if (isChallengeMode) {
-      window.QuizzesHubChallenge?.openHub()
       return
     }
 
@@ -784,7 +783,6 @@ function App({ difficulty }: AppProps) {
 
   function startNextRound() {
     if (isChallengeMode) {
-      window.QuizzesHubChallenge?.openHub()
       return
     }
 
@@ -805,14 +803,6 @@ function App({ difficulty }: AppProps) {
           <div className="finish-state">
             <div className="finish-badge">Challenge</div>
             <h2>{message}</h2>
-            <button
-              className="action-button"
-              type="button"
-              onClick={() => window.QuizzesHubChallenge?.openHub()}
-            >
-              Back to Hub
-              <ArrowRight aria-hidden="true" size={18} />
-            </button>
           </div>
         </section>
       </main>
@@ -886,19 +876,21 @@ function App({ difficulty }: AppProps) {
             <h2>{message}</h2>
             <p>
               {isChallengeMode
-                ? 'Return to Quizzes Hub when you are done.'
+                ? 'Challenge complete.'
                 : score >= Math.ceil(totalQuestions * 0.7)
                 ? 'You are ready for the next round.'
                 : 'Try again and build the words slowly.'}
             </p>
-            <button
-              className="action-button"
-              type="button"
-              onClick={startNextRound}
-            >
-              {isChallengeMode ? 'Back to Hub' : 'Next round'}
-              <ArrowRight aria-hidden="true" size={18} />
-            </button>
+            {!isChallengeMode ? (
+              <button
+                className="action-button"
+                type="button"
+                onClick={startNextRound}
+              >
+                Next round
+                <ArrowRight aria-hidden="true" size={18} />
+              </button>
+            ) : null}
           </div>
         ) : (
           <>
@@ -955,18 +947,20 @@ function App({ difficulty }: AppProps) {
               })}
             </div>
 
-            <div className="quiz-actions">
-              <button
-                className="action-button"
-                disabled={!hasAnswered}
-                ref={nextButtonRef}
-                type="button"
-                onClick={goNext}
-              >
-                {isChallengeMode ? 'Back to Hub' : 'Continue'}
-                <ArrowRight aria-hidden="true" size={18} />
-              </button>
-            </div>
+            {!isChallengeMode ? (
+              <div className="quiz-actions">
+                <button
+                  className="action-button"
+                  disabled={!hasAnswered}
+                  ref={nextButtonRef}
+                  type="button"
+                  onClick={goNext}
+                >
+                  Continue
+                  <ArrowRight aria-hidden="true" size={18} />
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </section>
